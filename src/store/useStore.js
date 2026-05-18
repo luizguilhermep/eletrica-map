@@ -48,6 +48,31 @@ const useStore = create(
         })
       },
 
+      addEquipmentWithData: (equipType, position, data = {}) => {
+        const id = `node_${Date.now()}`
+        set({
+          nodes: [
+            ...get().nodes,
+            {
+              id,
+              type: 'equipment',
+              position,
+              data: {
+                label: equipType.label,
+                equipmentType: equipType.type,
+                icon: equipType.icon,
+                color: equipType.color,
+                status: 'off',
+                brand: '',
+                model: '',
+                notes: '',
+                ...data,
+              },
+            },
+          ],
+        })
+      },
+
       updateNodeData: (id, patch) =>
         set({
           nodes: get().nodes.map(n =>

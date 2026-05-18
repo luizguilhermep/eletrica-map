@@ -73,6 +73,20 @@ export const EQUIPMENT_TYPES = [
       { key: 'power', label: 'Potência', placeholder: 'ex: 2000 W' },
     ],
   },
+  {
+    type: 'alimentador',
+    label: 'Alimentador',
+    icon: '🔴',
+    color: '#e11d48',
+    fields: [
+      { key: 'voltage', label: 'Tensão', placeholder: 'ex: 13.8kV' },
+      { key: 'current', label: 'Corrente Nominal', placeholder: 'ex: 200A' },
+      { key: 'power', label: 'Potência', placeholder: 'ex: 150 kVA' },
+      { key: 'cable', label: 'Seção do Cabo', placeholder: 'ex: 150mm²' },
+      { key: 'origin', label: 'Origem', placeholder: 'ex: SE Principal' },
+      { key: 'destination', label: 'Destino', placeholder: 'ex: Quadro QD-01' },
+    ],
+  },
 ]
 
 export const STATUS_OPTIONS = [
