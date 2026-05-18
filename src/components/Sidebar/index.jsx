@@ -1,10 +1,10 @@
 import { useRef } from 'react'
-import { Image, Trash2, Zap } from 'lucide-react'
+import { Image, Trash2, Zap, LogOut } from 'lucide-react'
 import { EQUIPMENT_TYPES } from '../../data/equipmentTypes'
 import useStore from '../../store/useStore'
 
 export default function Sidebar({ onOpenAlimentadores }) {
-  const { setBackground, clearBackground, nodes } = useStore()
+  const { setBackground, clearBackground, nodes, user, signOut } = useStore()
   const fileRef = useRef(null)
   const hasBackground = nodes.some(n => n.id === '__background__')
 
@@ -26,7 +26,16 @@ export default function Sidebar({ onOpenAlimentadores }) {
     <div className="w-56 h-full bg-white border-r border-slate-200 flex flex-col overflow-hidden shrink-0">
       <div className="p-4 border-b border-slate-200 bg-slate-50">
         <h1 className="font-bold text-slate-800 text-sm">Planta Elétrica</h1>
-        <p className="text-xs text-slate-500 mt-0.5">Sistema de gerenciamento</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-slate-500 truncate min-w-0 flex-1">{user?.email}</p>
+          <button
+            onClick={signOut}
+            title="Sair"
+            className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors shrink-0 ml-1"
+          >
+            <LogOut size={13} />
+          </button>
+        </div>
       </div>
 
       <div className="p-3 border-b border-slate-200">

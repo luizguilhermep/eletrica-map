@@ -21,7 +21,7 @@ export default function Canvas() {
   const {
     nodes, edges,
     onNodesChange, onEdgesChange, onConnect,
-    addEquipment, selectNode,
+    addEquipment, selectNode, syncNodePosition,
   } = useStore()
 
   const { screenToFlowPosition } = useReactFlow()
@@ -53,6 +53,7 @@ export default function Canvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onPaneClick={() => selectNode(null)}
+        onNodeDragStop={(_, node) => syncNodePosition(node.id, node.position)}
         nodeTypes={nodeTypes}
         fitView
         deleteKeyCode="Delete"
