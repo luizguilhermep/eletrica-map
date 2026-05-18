@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Show React Flow handles only on hover/selected */
+.react-flow__handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+  width: 8px !important;
+  height: 8px !important;
+  background: #64748b !important;
+  border: 2px solid white !important;
+}
+
+.react-flow__node:hover .react-flow__handle,
+.react-flow__node.selected .react-flow__handle {
+  opacity: 1;
+}
