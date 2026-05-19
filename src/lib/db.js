@@ -1,121 +1,106 @@
-import { supabase } from './supabase'
+import {
+  doc, collection,
+  getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+  writeBatch, query, where,
+} from 'firebase/firestore'
+import { db } from './firebase'
 
-const toRFNode = (row) => ({
-  id: row.id,
-  type: row.node_type,
-  position: { x: row.position_x, y: row.position_y },
-  data: row.data,
-  zIndex: row.z_index,
-  draggable: row.draggable,
-  selectable: row.selectable,
-  deletable: row.deletable,
+// ─── Path helpers ────────────────────────────────────────────
+const plantRef  = (uid)          => doc(db,  'plants', uid)
+const nodesRef  = (uid)          => collection(db, 'plants', uid, 'nodes')
+const edgesRef  = (uid)          => collection(db, 'plants', uid, 'edges')
+const nodeRef   = (uid, nodeId)  => doc(db,  'plants', uid, 'nodes', nodeId)
+const edgeRef   = (uid, edgeId)  => doc(db,  'plants', uid, 'edges', edgeId)
+
+// ─── Converters ──────────────────────────────────────────────
+const toRFNode = (id, d) => ({
+  id,
+  type:      d.node_type,
+  position:  { x: d.position_x, y: d.position_y },
+  data:      d.data,
+  zIndex:    d.z_index    ?? 0,
+  draggable: d.draggable  ?? true,
+  selectable:d.selectable ?? true,
+  deletable: d.deletable  ?? true,
 })
 
-const toRFEdge = (row) => ({
-  id: row.id,
-  source: row.source,
-  target: row.target,
-  sourceHandle: row.source_handle,
-  targetHandle: row.target_handle,
-  animated: row.animated,
-  style: row.style,
+const toRFEdge = (id, d) => ({
+  id,
+  source:       d.source,
+  target:       d.target,
+  sourceHandle: d.source_handle ?? null,
+  targetHandle: d.target_handle ?? null,
+  animated:     d.animated ?? true,
+  style:        d.style    ?? {},
 })
 
-export const getOrCreatePlant = async (userId) => {
-  const { data: existing } = await supabase
-    .from('plants')
-    .select('*')
-    .eq('user_id', userId)
-    .single()
-  if (existing) return existing
-
-  const { data, error } = await supabase
-    .from('plants')
-    .insert({ user_id: userId, name: 'Minha Planta' })
-    .select()
-    .single()
-  if (error) throw error
-  return data
+// ─── Plant ───────────────────────────────────────────────────
+export const getOrCreatePlant = async (uid) => {
+  const snap = await getDoc(plantRef(uid))
+  if (snap.exists()) return { id: uid, ...snap.data() }
+  const plant = { name: 'Minha Planta', background_data: null }
+  await setDoc(plantRef(uid), plant)
+  return { id: uid, ...plant }
 }
 
-export const loadPlantData = async (plantId) => {
-  const [{ data: nodes, error: e1 }, { data: edges, error: e2 }] = await Promise.all([
-    supabase.from('nodes').select('*').eq('plant_id', plantId),
-    supabase.from('edges').select('*').eq('plant_id', plantId),
+// ─── Load ────────────────────────────────────────────────────
+export const loadPlantData = async (uid) => {
+  const [nodeSnap, edgeSnap] = await Promise.all([
+    getDocs(nodesRef(uid)),
+    getDocs(edgesRef(uid)),
   ])
-  if (e1) throw e1
-  if (e2) throw e2
   return {
-    nodes: (nodes ?? []).map(toRFNode),
-    edges: (edges ?? []).map(toRFEdge),
+    nodes: nodeSnap.docs.map(d => toRFNode(d.id, d.data())),
+    edges: edgeSnap.docs.map(d => toRFEdge(d.id, d.data())),
   }
 }
 
-export const upsertNode = async (plantId, node) => {
-  const { error } = await supabase.from('nodes').upsert({
-    id: node.id,
-    plant_id: plantId,
-    node_type: node.type,
-    position_x: node.position.x,
-    position_y: node.position.y,
-    data: node.data,
-    z_index: node.zIndex ?? 0,
-    draggable: node.draggable ?? true,
-    selectable: node.selectable ?? true,
-    deletable: node.deletable ?? true,
+// ─── Nodes ───────────────────────────────────────────────────
+export const upsertNode = async (uid, node) =>
+  setDoc(nodeRef(uid, node.id), {
+    node_type:   node.type,
+    position_x:  node.position.x,
+    position_y:  node.position.y,
+    data:        node.data,
+    z_index:     node.zIndex    ?? 0,
+    draggable:   node.draggable  ?? true,
+    selectable:  node.selectable ?? true,
+    deletable:   node.deletable  ?? true,
   })
-  if (error) console.error('upsertNode:', error)
-}
 
-export const removeNode = async (plantId, nodeId) => {
-  const { error } = await supabase
-    .from('nodes').delete().eq('id', nodeId).eq('plant_id', plantId)
-  if (error) console.error('removeNode:', error)
-}
+export const removeNode = async (uid, nodeId) =>
+  deleteDoc(nodeRef(uid, nodeId))
 
-export const upsertEdge = async (plantId, edge) => {
-  const { error } = await supabase.from('edges').upsert({
-    id: edge.id,
-    plant_id: plantId,
-    source: edge.source,
-    target: edge.target,
+export const updateNodePosition = async (uid, nodeId, x, y) =>
+  updateDoc(nodeRef(uid, nodeId), { position_x: x, position_y: y })
+
+export const patchNodeData = async (uid, nodeId, data) =>
+  updateDoc(nodeRef(uid, nodeId), { data })
+
+// ─── Edges ───────────────────────────────────────────────────
+export const upsertEdge = async (uid, edge) =>
+  setDoc(edgeRef(uid, edge.id), {
+    source:        edge.source,
+    target:        edge.target,
     source_handle: edge.sourceHandle ?? null,
     target_handle: edge.targetHandle ?? null,
-    animated: edge.animated ?? true,
-    style: edge.style ?? {},
+    animated:      edge.animated ?? true,
+    style:         edge.style    ?? {},
   })
-  if (error) console.error('upsertEdge:', error)
+
+export const removeEdge = async (uid, edgeId) =>
+  deleteDoc(edgeRef(uid, edgeId))
+
+export const removeEdgesByNode = async (uid, nodeId) => {
+  const [srcSnap, tgtSnap] = await Promise.all([
+    getDocs(query(edgesRef(uid), where('source', '==', nodeId))),
+    getDocs(query(edgesRef(uid), where('target', '==', nodeId))),
+  ])
+  const batch = writeBatch(db)
+  ;[...srcSnap.docs, ...tgtSnap.docs].forEach(d => batch.delete(d.ref))
+  await batch.commit()
 }
 
-export const removeEdge = async (plantId, edgeId) => {
-  const { error } = await supabase
-    .from('edges').delete().eq('id', edgeId).eq('plant_id', plantId)
-  if (error) console.error('removeEdge:', error)
-}
-
-export const removeEdgesByNode = async (plantId, nodeId) => {
-  const { error } = await supabase
-    .from('edges').delete().eq('plant_id', plantId)
-    .or(`source.eq.${nodeId},target.eq.${nodeId}`)
-  if (error) console.error('removeEdgesByNode:', error)
-}
-
-export const updateNodePosition = async (plantId, nodeId, x, y) => {
-  const { error } = await supabase
-    .from('nodes').update({ position_x: x, position_y: y })
-    .eq('id', nodeId).eq('plant_id', plantId)
-  if (error) console.error('updateNodePosition:', error)
-}
-
-export const patchNodeData = async (plantId, nodeId, data) => {
-  const { error } = await supabase
-    .from('nodes').update({ data }).eq('id', nodeId).eq('plant_id', plantId)
-  if (error) console.error('patchNodeData:', error)
-}
-
-export const updateBackground = async (plantId, dataUrl) => {
-  const { error } = await supabase
-    .from('plants').update({ background_data: dataUrl ?? null })
-    .eq('id', plantId)
-  if (error) console.error('updateBackground:', error)
-}
+// ─── Background ──────────────────────────────────────────────
+export const updateBackground = async (uid, dataUrl) =>
+  setDoc(plantRef(uid), { background_data: dataUrl ?? null }, { merge: true })

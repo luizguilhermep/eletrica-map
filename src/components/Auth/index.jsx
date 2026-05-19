@@ -3,10 +3,13 @@ import { Zap, AlertCircle } from 'lucide-react'
 import useStore from '../../store/useStore'
 
 const ERRORS = {
-  'Invalid login credentials': 'Email ou senha incorretos.',
-  'Email not confirmed': 'Confirme seu email antes de entrar.',
-  'User already registered': 'Email já cadastrado. Faça login.',
-  'Password should be at least': 'A senha deve ter ao menos 6 caracteres.',
+  'auth/invalid-credential':     'Email ou senha incorretos.',
+  'auth/user-not-found':         'Email não cadastrado.',
+  'auth/wrong-password':         'Senha incorreta.',
+  'auth/email-already-in-use':   'Email já cadastrado. Faça login.',
+  'auth/weak-password':          'Senha muito fraca. Use ao menos 6 caracteres.',
+  'auth/invalid-email':          'Email inválido.',
+  'auth/too-many-requests':      'Muitas tentativas. Tente novamente mais tarde.',
 }
 
 const translate = (msg) =>
@@ -31,7 +34,7 @@ export default function AuthPage() {
         await signIn(email, password)
       } else {
         await signUp(email, password)
-        setSuccess('Conta criada! Verifique seu email para confirmar o cadastro.')
+        // Firebase loga automaticamente após criar conta — sem confirmação de email
       }
     } catch (err) {
       setError(translate(err.message))

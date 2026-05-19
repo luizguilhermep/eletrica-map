@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react'
-import { supabase } from '../lib/supabase'
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as fbSignOut,
+  onAuthStateChanged,
+} from 'firebase/auth'
+import { auth } from '../lib/firebase'
 import * as db from '../lib/db'
 
 const makeBackgroundNode = (src) => ({
@@ -17,7 +23,7 @@ const makeBackgroundNode = (src) => ({
 const useStore = create((set, get) => ({
   // ─── Auth ────────────────────────────────────────────────────
   user: null,
-  plantId: null,
+  plantId: null,   // = user.uid no Firebase
   authLoading: true,
 
   // ─── React Flow ──────────────────────────────────────────────
@@ -27,46 +33,40 @@ const useStore = create((set, get) => ({
 
   // ─── Initialize ──────────────────────────────────────────────
   initialize: () => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') {
-        if (session?.user) {
-          await get()._loadUserData(session.user)
-        }
-        set({ authLoading: false })
-      } else if (event === 'SIGNED_IN' && !get().plantId) {
-        await get()._loadUserData(session.user)
-      } else if (event === 'SIGNED_OUT') {
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await get()._loadUserData(user)
+      } else {
         set({ user: null, plantId: null, nodes: [], edges: [], selectedNodeId: null })
       }
+      set({ authLoading: false })
     })
   },
 
   _loadUserData: async (user) => {
     try {
       set({ user })
-      const plant = await db.getOrCreatePlant(user.id)
-      const { nodes, edges } = await db.loadPlantData(plant.id)
+      const plant = await db.getOrCreatePlant(user.uid)
+      const { nodes, edges } = await db.loadPlantData(user.uid)
       const allNodes = plant.background_data
         ? [makeBackgroundNode(plant.background_data), ...nodes]
         : nodes
-      set({ plantId: plant.id, nodes: allNodes, edges })
+      set({ plantId: user.uid, nodes: allNodes, edges })
     } catch (err) {
-      console.error('Failed to load user data:', err)
+      console.error('Erro ao carregar dados:', err)
     }
   },
 
   signIn: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    await signInWithEmailAndPassword(auth, email, password)
   },
 
   signUp: async (email, password) => {
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) throw error
+    await createUserWithEmailAndPassword(auth, email, password)
   },
 
   signOut: async () => {
-    await supabase.auth.signOut()
+    await fbSignOut(auth)
   },
 
   // ─── React Flow handlers ─────────────────────────────────────
@@ -102,7 +102,6 @@ const useStore = create((set, get) => ({
       style: { stroke: '#94a3b8', strokeWidth: 2 },
     }
     const nextEdges = addEdge(newEdge, edges)
-    // Persist only if a new edge was actually added
     if (nextEdges.length > edges.length && plantId) {
       db.upsertEdge(plantId, newEdge)
     }
@@ -116,7 +115,7 @@ const useStore = create((set, get) => ({
     }
   },
 
-  // ─── Equipment actions ───────────────────────────────────────
+  // ─── Equipment ───────────────────────────────────────────────
   addEquipment: (equipType, position) => {
     const { plantId, nodes } = get()
     const id = `node_${Date.now()}`
