@@ -28,9 +28,10 @@ const makeIcon = (color, emoji) =>
 function SizeInvalidator() {
   const map = useMap()
   useEffect(() => {
-    // Give the browser one frame to finish CSS layout, then tell Leaflet
-    const id = setTimeout(() => map.invalidateSize(), 0)
-    return () => clearTimeout(id)
+    map.invalidateSize()
+    const id1 = setTimeout(() => map.invalidateSize(), 50)
+    const id2 = setTimeout(() => map.invalidateSize(), 300)
+    return () => { clearTimeout(id1); clearTimeout(id2) }
   }, [map])
   return null
 }
@@ -128,9 +129,16 @@ function NodePopup({ node, onRemove }) {
 // ─── Main component ───────────────────────────────────────────
 export default function MapView() {
   const { nodes, addEquipmentWithData, updateNodeData } = useStore()
-  const [placing, setPlacing]   = useState(null)  // equipment type being placed
-  const [locating, setLocating] = useState(null)  // nodeId being located from panel
+  const [placing, setPlacing]   = useState(null)
+  const [locating, setLocating] = useState(null)
   const [geoTick, setGeoTick]   = useState(0)
+  const [mapHeight, setMapHeight] = useState(window.innerHeight)
+
+  useEffect(() => {
+    const onResize = () => setMapHeight(window.innerHeight)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const locatedNodes   = nodes.filter(n => n.type === 'equipment' && n.data?.lat != null && n.data?.lng != null)
   const unlocatedNodes = nodes.filter(n => n.type === 'equipment' && (n.data?.lat == null || n.data?.lng == null))
@@ -154,7 +162,7 @@ export default function MapView() {
   const cancel = () => { setPlacing(null); setLocating(null) }
 
   return (
-    <div style={{ flex: 1, position: 'relative', height: '100vh', minWidth: 0 }}>
+    <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
 
       {/* ── Top toolbar ── */}
       <div style={{
@@ -278,7 +286,7 @@ export default function MapView() {
       <MapContainer
         center={[-15.77, -47.92]}
         zoom={13}
-        style={{ width: '100%', height: '100vh' }}
+        style={{ width: '100%', height: `${mapHeight}px` }}
         zoomControl
       >
         <TileLayer

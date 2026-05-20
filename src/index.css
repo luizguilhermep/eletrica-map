@@ -13,16 +13,9 @@ html, body, #root {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Leaflet container guarantee */
+/* Leaflet base */
 .leaflet-container {
-  height: 100vh !important;
-  width: 100% !important;
-  z-index: 0;
-  display: block;
-}
-.leaflet-tile-pane {
-  visibility: visible !important;
-  opacity: 1 !important;
+  font-family: system-ui, sans-serif;
 }
 
 /* Show React Flow handles only on hover/selected */
