@@ -162,7 +162,7 @@ export default function MapView() {
   const cancel = () => { setPlacing(null); setLocating(null) }
 
   return (
-    <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+    <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100vh' }}>
 
       {/* ── Top toolbar ── */}
       <div style={{
@@ -286,7 +286,7 @@ export default function MapView() {
       <MapContainer
         center={[-15.77, -47.92]}
         zoom={13}
-        style={{ width: '100%', height: `${mapHeight}px` }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         zoomControl
       >
         <TileLayer
