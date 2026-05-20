@@ -1,9 +1,9 @@
 import { useRef } from 'react'
-import { Image, Trash2, Zap, LogOut } from 'lucide-react'
+import { Image, Trash2, Zap, LogOut, Map, Layout } from 'lucide-react'
 import { EQUIPMENT_TYPES } from '../../data/equipmentTypes'
 import useStore from '../../store/useStore'
 
-export default function Sidebar({ onOpenAlimentadores }) {
+export default function Sidebar({ onOpenAlimentadores, viewMode, onViewChange }) {
   const { setBackground, clearBackground, nodes, user, signOut } = useStore()
   const fileRef = useRef(null)
   const hasBackground = nodes.some(n => n.id === '__background__')
@@ -38,7 +38,35 @@ export default function Sidebar({ onOpenAlimentadores }) {
         </div>
       </div>
 
+      {/* View mode toggle */}
       <div className="p-3 border-b border-slate-200">
+        <div className="flex rounded-lg bg-slate-100 p-1 gap-1">
+          <button
+            onClick={() => onViewChange('canvas')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              viewMode === 'canvas'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Layout size={12} />
+            Canvas
+          </button>
+          <button
+            onClick={() => onViewChange('map')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              viewMode === 'map'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Map size={12} />
+            Mapa
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'canvas' && <div className="p-3 border-b border-slate-200">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
           Planta baixa
         </p>
@@ -59,7 +87,7 @@ export default function Sidebar({ onOpenAlimentadores }) {
           </button>
         )}
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      </div>
+      </div>}
 
       <div className="p-3 border-b border-slate-200">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
@@ -94,9 +122,16 @@ export default function Sidebar({ onOpenAlimentadores }) {
         </div>
       </div>
 
-      <div className="p-3 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center">Arraste para o canvas</p>
-      </div>
+      {viewMode === 'canvas' && (
+        <div className="p-3 border-t border-slate-100">
+          <p className="text-xs text-slate-400 text-center">Arraste para o canvas</p>
+        </div>
+      )}
+      {viewMode === 'map' && (
+        <div className="p-3 border-t border-slate-100">
+          <p className="text-xs text-slate-400 text-center">Use a barra no topo do mapa</p>
+        </div>
+      )}
     </div>
   )
 }
