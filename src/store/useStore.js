@@ -46,10 +46,10 @@ const useStore = create((set, get) => ({
   _loadUserData: async (user) => {
     try {
       set({ user })
-      const plant = await db.getOrCreatePlant(user.uid)
-      const { nodes, edges } = await db.loadPlantData(user.uid)
-      const allNodes = plant.background_data
-        ? [makeBackgroundNode(plant.background_data), ...nodes]
+      const plant = await db.getOrCreatePlant()
+      const { nodes, edges } = await db.loadPlantData()
+      const allNodes = plant.backgroundData
+        ? [makeBackgroundNode(plant.backgroundData), ...nodes]
         : nodes
       set({ plantId: user.uid, nodes: allNodes, edges })
     } catch (err) {
@@ -169,7 +169,7 @@ const useStore = create((set, get) => ({
     set({ nodes: updated })
     if (plantId) {
       const node = updated.find(n => n.id === id)
-      if (node) db.patchNodeData(plantId, id, node.data)
+      if (node) db.updateNode(plantId, node)
     }
   },
 

@@ -1,106 +1,120 @@
-import {
-  doc, collection,
-  getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-  writeBatch, query, where,
-} from 'firebase/firestore'
-import { db } from './firebase'
+import { auth } from './firebase'
 
-// ─── Path helpers ────────────────────────────────────────────
-const plantRef  = (uid)          => doc(db,  'plants', uid)
-const nodesRef  = (uid)          => collection(db, 'plants', uid, 'nodes')
-const edgesRef  = (uid)          => collection(db, 'plants', uid, 'edges')
-const nodeRef   = (uid, nodeId)  => doc(db,  'plants', uid, 'nodes', nodeId)
-const edgeRef   = (uid, edgeId)  => doc(db,  'plants', uid, 'edges', edgeId)
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
-// ─── Converters ──────────────────────────────────────────────
-const toRFNode = (id, d) => ({
-  id,
-  type:      d.node_type,
-  position:  { x: d.position_x, y: d.position_y },
-  data:      d.data,
-  zIndex:    d.z_index    ?? 0,
-  draggable: d.draggable  ?? true,
-  selectable:d.selectable ?? true,
-  deletable: d.deletable  ?? true,
+// Get a fresh Firebase ID token for every request
+const getToken = async () => {
+  const user = auth.currentUser
+  if (!user) throw new Error('Usuário não autenticado')
+  return user.getIdToken()
+}
+
+// Generic fetch wrapper
+const req = async (method, path, body) => {
+  const token = await getToken()
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  }
+  if (body !== undefined) opts.body = JSON.stringify(body)
+
+  const res = await fetch(`${BASE}${path}`, opts)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`[${method} ${path}] ${res.status}: ${text}`)
+  }
+  if (res.status === 204) return null
+  return res.json()
+}
+
+// ─── Converters (API ↔ React Flow) ───────────────────────────
+const toRFNode = (n) => ({
+  id: n.id,
+  type: n.nodeType,
+  position: { x: n.positionX ?? 0, y: n.positionY ?? 0 },
+  data: n.data ?? {},
+  zIndex: n.zIndex ?? 0,
+  draggable: n.draggable ?? true,
+  selectable: n.selectable ?? true,
+  deletable: n.deletable ?? true,
 })
 
-const toRFEdge = (id, d) => ({
-  id,
-  source:       d.source,
-  target:       d.target,
-  sourceHandle: d.source_handle ?? null,
-  targetHandle: d.target_handle ?? null,
-  animated:     d.animated ?? true,
-  style:        d.style    ?? {},
+const toRFEdge = (e) => ({
+  id: e.id,
+  source: e.source,
+  target: e.target,
+  sourceHandle: e.sourceHandle ?? null,
+  targetHandle: e.targetHandle ?? null,
+  animated: e.animated ?? true,
+  style: e.style ?? {},
+})
+
+const fromRFNode = (node) => ({
+  id: node.id,
+  nodeType: node.type,
+  positionX: node.position.x,
+  positionY: node.position.y,
+  data: node.data,
+  zIndex: node.zIndex ?? 0,
+  draggable: node.draggable ?? true,
+  selectable: node.selectable ?? true,
+  deletable: node.deletable ?? true,
+})
+
+const fromRFEdge = (edge) => ({
+  id: edge.id,
+  source: edge.source,
+  target: edge.target,
+  sourceHandle: edge.sourceHandle ?? null,
+  targetHandle: edge.targetHandle ?? null,
+  animated: edge.animated ?? true,
+  style: edge.style ?? {},
 })
 
 // ─── Plant ───────────────────────────────────────────────────
-export const getOrCreatePlant = async (uid) => {
-  const snap = await getDoc(plantRef(uid))
-  if (snap.exists()) return { id: uid, ...snap.data() }
-  const plant = { name: 'Minha Planta', background_data: null }
-  await setDoc(plantRef(uid), plant)
-  return { id: uid, ...plant }
-}
+export const getOrCreatePlant = () => req('GET', '/api/plant')
+
+export const updateBackground = (_uid, dataUrl) =>
+  req('PATCH', '/api/plant/background', { backgroundData: dataUrl ?? null })
 
 // ─── Load ────────────────────────────────────────────────────
-export const loadPlantData = async (uid) => {
-  const [nodeSnap, edgeSnap] = await Promise.all([
-    getDocs(nodesRef(uid)),
-    getDocs(edgesRef(uid)),
+export const loadPlantData = async () => {
+  const [nodes, edges] = await Promise.all([
+    req('GET', '/api/nodes'),
+    req('GET', '/api/edges'),
   ])
   return {
-    nodes: nodeSnap.docs.map(d => toRFNode(d.id, d.data())),
-    edges: edgeSnap.docs.map(d => toRFEdge(d.id, d.data())),
+    nodes: nodes.map(toRFNode),
+    edges: edges.map(toRFEdge),
   }
 }
 
 // ─── Nodes ───────────────────────────────────────────────────
-export const upsertNode = async (uid, node) =>
-  setDoc(nodeRef(uid, node.id), {
-    node_type:   node.type,
-    position_x:  node.position.x,
-    position_y:  node.position.y,
-    data:        node.data,
-    z_index:     node.zIndex    ?? 0,
-    draggable:   node.draggable  ?? true,
-    selectable:  node.selectable ?? true,
-    deletable:   node.deletable  ?? true,
-  })
+// Create a new node
+export const upsertNode = (_uid, node) =>
+  req('POST', '/api/nodes', fromRFNode(node))
 
-export const removeNode = async (uid, nodeId) =>
-  deleteDoc(nodeRef(uid, nodeId))
+// Update an existing node (full replacement)
+export const updateNode = (_uid, node) =>
+  req('PUT', `/api/nodes/${node.id}`, fromRFNode(node))
 
-export const updateNodePosition = async (uid, nodeId, x, y) =>
-  updateDoc(nodeRef(uid, nodeId), { position_x: x, position_y: y })
+// Update only position
+export const updateNodePosition = (_uid, nodeId, x, y) =>
+  req('PATCH', `/api/nodes/${nodeId}/position`, { x, y })
 
-export const patchNodeData = async (uid, nodeId, data) =>
-  updateDoc(nodeRef(uid, nodeId), { data })
+// Delete node (backend also removes its edges)
+export const removeNode = (_uid, nodeId) =>
+  req('DELETE', `/api/nodes/${nodeId}`)
+
+// No-op: backend handles cascade when deleting a node
+export const removeEdgesByNode = () => Promise.resolve()
 
 // ─── Edges ───────────────────────────────────────────────────
-export const upsertEdge = async (uid, edge) =>
-  setDoc(edgeRef(uid, edge.id), {
-    source:        edge.source,
-    target:        edge.target,
-    source_handle: edge.sourceHandle ?? null,
-    target_handle: edge.targetHandle ?? null,
-    animated:      edge.animated ?? true,
-    style:         edge.style    ?? {},
-  })
+export const upsertEdge = (_uid, edge) =>
+  req('POST', '/api/edges', fromRFEdge(edge))
 
-export const removeEdge = async (uid, edgeId) =>
-  deleteDoc(edgeRef(uid, edgeId))
-
-export const removeEdgesByNode = async (uid, nodeId) => {
-  const [srcSnap, tgtSnap] = await Promise.all([
-    getDocs(query(edgesRef(uid), where('source', '==', nodeId))),
-    getDocs(query(edgesRef(uid), where('target', '==', nodeId))),
-  ])
-  const batch = writeBatch(db)
-  ;[...srcSnap.docs, ...tgtSnap.docs].forEach(d => batch.delete(d.ref))
-  await batch.commit()
-}
-
-// ─── Background ──────────────────────────────────────────────
-export const updateBackground = async (uid, dataUrl) =>
-  setDoc(plantRef(uid), { background_data: dataUrl ?? null }, { merge: true })
+export const removeEdge = (_uid, edgeId) =>
+  req('DELETE', `/api/edges/${edgeId}`)
