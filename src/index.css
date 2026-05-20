@@ -13,6 +13,13 @@ html, body, #root {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* Leaflet container guarantee */
+.leaflet-container {
+  height: 100vh !important;
+  width: 100%;
+  z-index: 0;
+}
+
 /* Show React Flow handles only on hover/selected */
 .react-flow__handle {
   opacity: 0;
