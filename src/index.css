@@ -16,8 +16,13 @@ html, body, #root {
 /* Leaflet container guarantee */
 .leaflet-container {
   height: 100vh !important;
-  width: 100%;
+  width: 100% !important;
   z-index: 0;
+  display: block;
+}
+.leaflet-tile-pane {
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Show React Flow handles only on hover/selected */

@@ -24,6 +24,17 @@ const makeIcon = (color, emoji) =>
     popupAnchor: [0, -26],
   })
 
+// ─── Forces Leaflet to recalculate size after flex layout ────
+function SizeInvalidator() {
+  const map = useMap()
+  useEffect(() => {
+    // Give the browser one frame to finish CSS layout, then tell Leaflet
+    const id = setTimeout(() => map.invalidateSize(), 0)
+    return () => clearTimeout(id)
+  }, [map])
+  return null
+}
+
 // ─── Handles map clicks ───────────────────────────────────────
 function ClickHandler({ onMapClick, active }) {
   const map = useMapEvents({ click: (e) => active && onMapClick(e.latlng) })
@@ -271,9 +282,12 @@ export default function MapView() {
         zoomControl
       >
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+          subdomains="abcd"
+          maxZoom={20}
         />
+        <SizeInvalidator />
         <ClickHandler onMapClick={handleMapClick} active={isActive} />
         <GeoLocator trigger={geoTick} />
 
